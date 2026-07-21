@@ -7,18 +7,25 @@ package com.aurora.store.compose.ui.main
 
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -29,7 +36,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -70,10 +79,18 @@ fun MainScreen(
     updatesViewModel: UpdatesViewModel = hiltViewModel(),
     onNavigateTo: (Destination) -> Unit = {},
     /**
-     * When `true`, the TopAppBar / NavigationBar heights are reduced and the whole Scaffold is
-     * inset vertically so the two bars move toward the center of a round watch — away from the
-     * bezel that would otherwise clip them. Used only on Wear OS (round watches); phones/tablets
-     * pass `false` (default) and get the standard Material3 heights.
+     * When `true`, the TopAppBar / NavigationBar are replaced with custom compact `Row`s whose
+     * heights are small enough that the top bar's bottom edge sits higher ("moves up") and the
+     * bottom bar's top edge sits lower ("moves down"), freeing vertical space for the pager
+     * content in the middle of a round watch.
+     *
+     * We do NOT shrink the Material3 `TopAppBar` / `NavigationBar` with `Modifier.height()` —
+     * those components enforce their own internal heights (64dp / 80dp) and window insets, so
+     * forcing a smaller height clips the title text and icons instead of re-laying them out.
+     * The custom `Row`s below use appropriately sized icons (18dp / 20dp) and touch targets
+     * (32dp / 36dp) so nothing is clipped — the bars are genuinely shorter, not cut off.
+     *
+     * Phones/tablets pass `false` (default) and get the standard Material3 components.
      */
     wearCompact: Boolean = false
 ) {
@@ -130,46 +147,34 @@ fun MainScreen(
         )
     }
 
-    // On Wear OS round watches we want the TopAppBar to move UP (its bottom edge rises, freeing
-    // space below it) and the NavigationBar to move DOWN (its top edge lowers, freeing space
-    // above it). We do NOT add vertical padding to the Scaffold — that would push the top bar
-    // DOWN and the bottom bar UP (toward the center), which is the wrong direction and squeezes
-    // the middle even more.
-    //
-    // Instead we just shrink each bar's height:
-    //  - TopAppBar: 32dp (title + action icons still fit, bar is much shorter so its bottom edge
-    //    is higher → "moves up").
-    //  - NavigationBar: 40dp with icon-only items (no text label). Icons fit without clipping;
-    //    bar is much shorter so its top edge is lower → "moves down".
-    // The freed vertical space goes to the pager content area in the middle.
-    val wearTopBarHeight = if (wearCompact) 32.dp else null
-    val wearBottomBarHeight = if (wearCompact) 40.dp else null
-
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
-            TopAppBar(
-                modifier = if (wearTopBarHeight != null) {
-                    Modifier.height(wearTopBarHeight)
-                } else {
-                    Modifier
-                },
-                title = stringResource(MainTab.entries[pagerState.currentPage].labelRes),
-                actions = {
-                    IconButton(onClick = { onNavigateTo(Destination.Downloads) }) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_download_manager),
-                            contentDescription = stringResource(R.string.title_download_manager)
-                        )
+            if (wearCompact) {
+                WearCompactTopBar(
+                    title = stringResource(MainTab.entries[pagerState.currentPage].labelRes),
+                    onDownloads = { onNavigateTo(Destination.Downloads) },
+                    onMore = { showMoreSheet = true }
+                )
+            } else {
+                TopAppBar(
+                    title = stringResource(MainTab.entries[pagerState.currentPage].labelRes),
+                    actions = {
+                        IconButton(onClick = { onNavigateTo(Destination.Downloads) }) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_download_manager),
+                                contentDescription = stringResource(R.string.title_download_manager)
+                            )
+                        }
+                        IconButton(onClick = { showMoreSheet = true }) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_settings_account),
+                                contentDescription = stringResource(R.string.title_more)
+                            )
+                        }
                     }
-                    IconButton(onClick = { showMoreSheet = true }) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_settings_account),
-                            contentDescription = stringResource(R.string.title_more)
-                        )
-                    }
-                }
-            )
+                )
+            }
         },
         floatingActionButton = {
             FloatingActionButton(onClick = { onNavigateTo(Destination.Search) }) {
@@ -180,42 +185,40 @@ fun MainScreen(
             }
         },
         bottomBar = {
-            NavigationBar(
-                modifier = if (wearBottomBarHeight != null) {
-                    Modifier.height(wearBottomBarHeight)
-                } else {
-                    Modifier
-                }
-            ) {
-                MainTab.entries.forEachIndexed { index, tab ->
-                    NavigationBarItem(
-                        selected = pagerState.currentPage == index,
-                        onClick = {
-                            coroutineScope.launch { pagerState.animateScrollToPage(index) }
-                        },
-                        icon = {
-                            if (tab == MainTab.UPDATES && updateCount > 0) {
-                                BadgedBox(badge = { Badge { Text("$updateCount") } }) {
+            if (wearCompact) {
+                WearCompactBottomBar(
+                    currentPage = pagerState.currentPage,
+                    updateCount = updateCount,
+                    onTabSelected = { index ->
+                        coroutineScope.launch { pagerState.animateScrollToPage(index) }
+                    }
+                )
+            } else {
+                NavigationBar {
+                    MainTab.entries.forEachIndexed { index, tab ->
+                        NavigationBarItem(
+                            selected = pagerState.currentPage == index,
+                            onClick = {
+                                coroutineScope.launch { pagerState.animateScrollToPage(index) }
+                            },
+                            icon = {
+                                if (tab == MainTab.UPDATES && updateCount > 0) {
+                                    BadgedBox(badge = { Badge { Text("$updateCount") } }) {
+                                        Icon(
+                                            painter = painterResource(tab.iconRes),
+                                            contentDescription = null
+                                        )
+                                    }
+                                } else {
                                     Icon(
                                         painter = painterResource(tab.iconRes),
                                         contentDescription = null
                                     )
                                 }
-                            } else {
-                                Icon(
-                                    painter = painterResource(tab.iconRes),
-                                    contentDescription = null
-                                )
-                            }
-                        },
-                        // On Wear, drop the text label so the NavigationBar can be much shorter
-                        // without clipping the icons. On phones the label is kept (default behavior).
-                        label = {
-                            if (!wearCompact) {
-                                Text(stringResource(tab.labelRes))
-                            }
-                        }
-                    )
+                            },
+                            label = { Text(stringResource(tab.labelRes)) }
+                        )
+                    }
                 }
             }
         }
@@ -275,6 +278,119 @@ fun MainScreen(
                             updatesViewModel.cancelDownload(packageName)
                         },
                         onCancelAll = { updatesViewModel.cancelAll() }
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Wear OS compact top bar — a plain [Row] with a fixed 36dp height (vs the Material3
+ * [TopAppBar]'s 64dp + window insets). Uses 18dp icons inside 32dp circular touch targets so
+ * nothing is clipped: the bar is genuinely shorter, its bottom edge sits higher ("moves up"),
+ * and the freed space goes to the pager content below.
+ */
+@Composable
+private fun WearCompactTopBar(
+    title: String,
+    onDownloads: () -> Unit,
+    onMore: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(36.dp)
+            .padding(horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall,
+            maxLines = 1,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f)
+        )
+        Box(
+            modifier = Modifier
+                .size(32.dp)
+                .clip(CircleShape)
+                .clickable(onClick = onDownloads),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_download_manager),
+                contentDescription = stringResource(R.string.title_download_manager),
+                modifier = Modifier.size(18.dp),
+                tint = MaterialTheme.colorScheme.onSurface
+            )
+        }
+        Box(
+            modifier = Modifier
+                .size(32.dp)
+                .clip(CircleShape)
+                .clickable(onClick = onMore),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_settings_account),
+                contentDescription = stringResource(R.string.title_more),
+                modifier = Modifier.size(18.dp),
+                tint = MaterialTheme.colorScheme.onSurface
+            )
+        }
+    }
+}
+
+/**
+ * Wear OS compact bottom bar — a plain [Row] with a fixed 44dp height (vs the Material3
+ * [NavigationBar]'s 80dp). Uses 20dp icons inside 36dp circular touch targets so nothing is
+ * clipped: the bar is genuinely shorter, its top edge sits lower ("moves down"), and the freed
+ * space goes to the pager content above.
+ */
+@Composable
+private fun WearCompactBottomBar(
+    currentPage: Int,
+    updateCount: Int,
+    onTabSelected: (Int) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(44.dp)
+            .padding(horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceEvenly
+    ) {
+        MainTab.entries.forEachIndexed { index, tab ->
+            val selected = currentPage == index
+            val tint = if (selected) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            }
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .clickable { onTabSelected(index) },
+                contentAlignment = Alignment.Center
+            ) {
+                if (tab == MainTab.UPDATES && updateCount > 0) {
+                    BadgedBox(badge = { Badge { Text("$updateCount") } }) {
+                        Icon(
+                            painter = painterResource(tab.iconRes),
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp),
+                            tint = tint
+                        )
+                    }
+                } else {
+                    Icon(
+                        painter = painterResource(tab.iconRes),
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                        tint = tint
                     )
                 }
             }
