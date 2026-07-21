@@ -210,7 +210,11 @@ fun MainScreen(
                         },
                         // On Wear, drop the text label so the NavigationBar can be much shorter
                         // without clipping the icons. On phones the label is kept (default behavior).
-                        label = if (wearCompact) null else { Text(stringResource(tab.labelRes)) }
+                        label = {
+                            if (!wearCompact) {
+                                Text(stringResource(tab.labelRes))
+                            }
+                        }
                     )
                 }
             }
