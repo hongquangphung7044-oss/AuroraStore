@@ -32,6 +32,8 @@ import com.aurora.extensions.toast
 import com.aurora.store.AuroraApp
 import com.aurora.store.ComposeActivity
 import com.aurora.store.R
+import com.aurora.store.compose.composition.LocalUI
+import com.aurora.store.compose.composition.UI
 import com.aurora.store.compose.ui.about.AboutScreen
 import com.aurora.store.compose.ui.accounts.AccountsScreen
 import com.aurora.store.compose.ui.accounts.GoogleLoginScreen
@@ -47,6 +49,7 @@ import com.aurora.store.compose.ui.downloads.DownloadsScreen
 import com.aurora.store.compose.ui.favourite.FavouriteScreen
 import com.aurora.store.compose.ui.installed.InstalledScreen
 import com.aurora.store.compose.ui.main.MainScreen
+import com.aurora.store.compose.ui.main.WearMainScreen
 import com.aurora.store.compose.ui.onboarding.OnboardingScreen
 import com.aurora.store.compose.ui.preferences.NotificationPreferenceScreen
 import com.aurora.store.compose.ui.preferences.SettingsScreen
@@ -59,6 +62,7 @@ import com.aurora.store.compose.ui.preferences.updates.SourceFiltersScreen
 import com.aurora.store.compose.ui.preferences.updates.UpdatesPreferenceScreen
 import com.aurora.store.compose.ui.search.SearchScreen
 import com.aurora.store.compose.ui.splash.SplashScreen
+import com.aurora.store.compose.ui.splash.WearSplashScreen
 import com.aurora.store.compose.ui.spoof.SpoofScreen
 import com.aurora.store.data.event.AuthEvent
 import com.aurora.store.data.event.InstallerEvent
@@ -89,6 +93,10 @@ internal interface NavDisplayEntryPoint {
 fun NavDisplay(startDestination: NavKey) {
     val backstack = rememberNavBackStack(startDestination)
     val context = LocalContext.current
+    // Read once per composition: routing to Wear-specific screens (WearSplashScreen /
+    // WearMainScreen) is stable for the activity lifetime since the form factor doesn't change
+    // at runtime.
+    val isWear = LocalUI.current == UI.WEAR
 
     fun isMicroGAuthInvalidated(): Boolean =
         Preferences.getBoolean(context, Preferences.PREFERENCE_AUTH_VIA_MICROG, false) &&
@@ -214,10 +222,17 @@ fun NavDisplay(startDestination: NavKey) {
         },
         entryProvider = entryProvider {
             entry<Screen.Main> { screen ->
-                MainScreen(
-                    initialTab = screen.initialTab,
-                    onNavigateTo = ::navigate
-                )
+                if (isWear) {
+                    WearMainScreen(
+                        initialTab = screen.initialTab,
+                        onNavigateTo = ::navigate
+                    )
+                } else {
+                    MainScreen(
+                        initialTab = screen.initialTab,
+                        onNavigateTo = ::navigate
+                    )
+                }
             }
 
             entry<Screen.AppDetails> { screen ->
@@ -292,10 +307,17 @@ fun NavDisplay(startDestination: NavKey) {
             ) { SearchScreen() }
 
             entry<Screen.Splash> { screen ->
-                SplashScreen(
-                    deepLinkPackageName = screen.packageName,
-                    onNavigateTo = ::navigate
-                )
+                if (isWear) {
+                    WearSplashScreen(
+                        deepLinkPackageName = screen.packageName,
+                        onNavigateTo = ::navigate
+                    )
+                } else {
+                    SplashScreen(
+                        deepLinkPackageName = screen.packageName,
+                        onNavigateTo = ::navigate
+                    )
+                }
             }
 
             entry<Screen.GoogleLogin> { screen ->

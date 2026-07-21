@@ -42,6 +42,7 @@ room = "2.8.4"
 serialization = "1.11.0"
 shizuku = "13.1.5"
 truth = "1.4.5"
+wearCompose = "1.2.0"
 work = "2.11.2"
 
 [libraries]
@@ -100,6 +101,9 @@ rikka-shizuku-provider = { module = "dev.rikka.shizuku:provider", version.ref = 
 rikka-tools-refine-runtime = { module = "dev.rikka.tools.refine:runtime", version.ref = "rikkaTools" }
 squareup-leakcanary-android = { module = "com.squareup.leakcanary:leakcanary-android", version.ref = "leakcanary" }
 squareup-okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
+wear-compose-foundation = { module = "androidx.wear.compose:compose-foundation", version.ref = "wearCompose" }
+wear-compose-material3 = { module = "androidx.wear.compose:compose-material3", version.ref = "wearCompose" }
+wear-compose-ui-tooling = { module = "androidx.wear.compose:compose-ui-tooling", version.ref = "wearCompose" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "androidGradlePlugin" }

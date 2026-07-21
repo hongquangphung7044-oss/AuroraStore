@@ -272,6 +272,11 @@ dependencies {
 
     implementation(libs.process.phoenix)
 
+    // Wear OS (round watches) — used by WearSplashScreen / WearMainScreen / WearRoundHost
+    implementation(libs.wear.compose.material3)
+    implementation(libs.wear.compose.foundation)
+    debugImplementation(libs.wear.compose.ui.tooling)
+
     "huaweiImplementation"(libs.huawei.hms.coreservice)
 
     // LeakCanary
