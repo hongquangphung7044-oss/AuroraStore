@@ -10,6 +10,7 @@ import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -32,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aurora.extensions.requiresObbDir
@@ -66,7 +68,14 @@ fun MainScreen(
     initialTab: Int = 0,
     mainViewModel: MainViewModel = hiltViewModel(),
     updatesViewModel: UpdatesViewModel = hiltViewModel(),
-    onNavigateTo: (Destination) -> Unit = {}
+    onNavigateTo: (Destination) -> Unit = {},
+    /**
+     * When `true`, the TopAppBar / NavigationBar heights are reduced and the whole Scaffold is
+     * inset vertically so the two bars move toward the center of a round watch — away from the
+     * bezel that would otherwise clip them. Used only on Wear OS (round watches); phones/tablets
+     * pass `false` (default) and get the standard Material3 heights.
+     */
+    wearCompact: Boolean = false
 ) {
     val context = LocalContext.current
     val networkStatus = LocalNetworkStatus.current
@@ -121,9 +130,24 @@ fun MainScreen(
         )
     }
 
+    // On Wear OS round watches, inset the whole Scaffold vertically so the TopAppBar moves DOWN
+    // and the NavigationBar moves UP — i.e. both bars shift toward the center, away from the
+    // round bezel that would otherwise clip their edges. Also shrink the bar heights so the
+    // pager content area in the middle gets more room.
+    val wearVerticalInset = if (wearCompact) 18.dp else 0.dp
+    val wearBarHeight = if (wearCompact) 36.dp else null
+
     Scaffold(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(vertical = wearVerticalInset),
         topBar = {
             TopAppBar(
+                modifier = if (wearBarHeight != null) {
+                    Modifier.height(wearBarHeight)
+                } else {
+                    Modifier
+                },
                 title = stringResource(MainTab.entries[pagerState.currentPage].labelRes),
                 actions = {
                     IconButton(onClick = { onNavigateTo(Destination.Downloads) }) {
@@ -150,7 +174,13 @@ fun MainScreen(
             }
         },
         bottomBar = {
-            NavigationBar {
+            NavigationBar(
+                modifier = if (wearBarHeight != null) {
+                    Modifier.height(wearBarHeight)
+                } else {
+                    Modifier
+                }
+            ) {
                 MainTab.entries.forEachIndexed { index, tab ->
                     NavigationBarItem(
                         selected = pagerState.currentPage == index,
