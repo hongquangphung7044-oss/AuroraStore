@@ -64,6 +64,12 @@
         android:name="android.software.device_admin"
         android:required="false" />
 
+    <!-- Wear OS (round watches): declared as optional so the same APK keeps installing on
+         phones/tablets/TV, while letting the system route the app to round watch form factors. -->
+    <uses-feature
+        android:name="android.hardware.type.watch"
+        android:required="false" />
+
     <application
         android:name=".AuroraApp"
         android:allowBackup="true"

@@ -31,6 +31,7 @@ import com.aurora.store.R
 import com.aurora.store.compose.composition.LocalNetworkStatus
 import com.aurora.store.compose.composition.LocalUI
 import com.aurora.store.compose.composition.UI
+import com.aurora.store.compose.composition.WearRoundHost
 import com.aurora.store.compose.navigation.NavDisplay
 import com.aurora.store.compose.navigation.Screen
 import com.aurora.store.compose.theme.AuroraTheme
@@ -63,6 +64,7 @@ class ComposeActivity : FragmentActivity() {
 
         val localUI = when {
             PackageUtil.isTv(this) -> UI.TV
+            PackageUtil.isWear(this) -> UI.WEAR
             else -> UI.DEFAULT
         }
 
@@ -123,15 +125,22 @@ class ComposeActivity : FragmentActivity() {
                         LocalUI provides localUI,
                         LocalNetworkStatus provides networkStatus
                     ) {
-                        NavDisplay(startDestination = startDestination)
+                        // On round Wear OS watches this applies a circular clip + chin-safe
+                        // horizontal padding and exposes LocalWearRound for descendants; on
+                        // rectangular screens it is a transparent passthrough.
+                        WearRoundHost {
+                            NavDisplay(startDestination = startDestination)
+                        }
                     }
 
                     // Plain surface behind the prompt so dismissing it doesn't flash the lock card
                     LockState.AUTHENTICATING -> Surface(modifier = Modifier.fillMaxSize()) {}
 
-                    LockState.LOCKED -> AppLockScreen(
-                        onUnlock = { lockState = LockState.AUTHENTICATING }
-                    )
+                    LockState.LOCKED -> WearRoundHost {
+                        AppLockScreen(
+                            onUnlock = { lockState = LockState.AUTHENTICATING }
+                        )
+                    }
                 }
             }
         }

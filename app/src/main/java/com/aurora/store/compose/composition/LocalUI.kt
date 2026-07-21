@@ -20,7 +20,13 @@ enum class UI {
     /**
      * Targets TV
      */
-    TV
+    TV,
+
+    /**
+     * Targets Wear OS (round watches). Composables can read [LocalWearRound] to know whether the
+     * current watch has a circular display, and apply circular-safe insets/clip accordingly.
+     */
+    WEAR
 }
 
 /**

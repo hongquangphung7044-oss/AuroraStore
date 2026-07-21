@@ -224,6 +224,33 @@ object PackageUtil {
     fun isTv(context: Context): Boolean =
         context.packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK)
 
+    /**
+     * Returns `true` when running on a Wear OS (watch) form factor.
+     *
+     * Mirrors [isTv] but checks [PackageManager.FEATURE_WATCH]. Combined with [isRoundScreen],
+     * composables can decide whether to apply circular-display safe layouts.
+     */
+    fun isWear(context: Context): Boolean =
+        context.packageManager.hasSystemFeature(PackageManager.FEATURE_WATCH)
+
+    /**
+     * Returns `true` when the current display has a round viewport (typical of most Wear OS
+     * devices). Falls back to `false` on configurations that don't expose the bit.
+     */
+    fun isRoundScreen(context: Context): Boolean {
+        // Configuration.isScreenRound is the canonical Wear OS signal; it is hidden from the
+        // public API but reachable through the runtime Configuration instance delivered to apps.
+        val configuration = context.resources.configuration
+        return try {
+            // Reflectively read the hidden `isScreenRound` boolean so we don't pin a new SDK.
+            val field = configuration.javaClass.getDeclaredField("isScreenRound")
+            field.isAccessible = true
+            field.getBoolean(configuration)
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
     fun getLaunchIntent(context: Context, packageName: String?): Intent? {
         val intent = if (isTv(context)) {
             context.packageManager.getLeanbackLaunchIntentForPackage(packageName!!)
