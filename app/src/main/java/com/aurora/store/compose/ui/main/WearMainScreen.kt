@@ -9,6 +9,7 @@ import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -29,8 +30,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
-import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material3.AppScaffold
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.Icon
@@ -69,12 +68,14 @@ private enum class WearTab(
  *
  * This variant drops all three bars and rebuilds the screen around Wear Material3 primitives:
  *  - [AppScaffold] / [ScreenScaffold] apply the circular inset + chin automatically.
- *  - The tab switcher becomes a `ScalingLazyColumn` whose first item is a compact chip row
- *    (Apps / Games / Updates + Search / Downloads / More). The selected tab uses a secondary
- *    chip color so the user can see which page they're on at a glance.
- *  - Below the chips, a `HorizontalPager` shows the corresponding page content
- *    (Apps / Games / Updates). Swiping the pager is disabled — the chips drive navigation,
- *    which is more reliable on a small round screen where stray swipes are common.
+ *  - A compact column of tab buttons (Apps / Games / Updates) sits at the top. The selected tab
+ *    uses a filled [Button] (high-contrast) so the user sees which page they're on; unselected
+ *    tabs use [OutlinedButton] (low-contrast). Tapping a button switches the pager page.
+ *  - The [HorizontalPager] fills the remaining vertical space with a finite height constraint —
+ *    it is NOT nested inside a `ScalingLazyColumn` `item {}`, because that combination gives the
+ *    pager infinite max-height and crashes the measure pass (this was the root cause of the
+ *    post-login crash: the splash navigated here, `fillMaxSize()` inside a lazy item threw).
+ *  - Quick actions (Search / Downloads / More) are available via the More chip at the bottom.
  *
  * Phone/tablet/TV keep using the original [MainScreen]; this is only routed to from
  * [com.aurora.store.compose.navigation.NavDisplay] when `LocalUI == UI.WEAR`.
@@ -100,26 +101,21 @@ fun WearMainScreen(
         WearTab.entries.size
     }
 
-    val lazyListState = rememberScalingLazyListState()
-
     if (networkStatus == NetworkStatus.UNAVAILABLE) {
         NetworkScreen()
         return
     }
 
     AppScaffold {
-        ScreenScaffold(scrollState = lazyListState) {
-            ScalingLazyColumn(
-                state = lazyListState,
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                // Tab buttons — Apps / Games / Updates. The selected tab uses a filled Button
-                // (high-contrast) so the user sees which page they're on; unselected tabs use
-                // OutlinedButton (low-contrast). Tapping a button switches the pager page.
-                WearTab.entries.forEachIndexed { index, tab ->
-                    item(key = "tab-$index") {
+        ScreenScaffold {
+            // Box with fillMaxSize gives the pager a finite height constraint (the ScreenScaffold's
+            // content area), so HorizontalPager's children can be measured correctly. Putting the
+            // pager inside a ScalingLazyColumn item would pass Infinity as maxHeight and crash.
+            Box(modifier = Modifier.fillMaxSize()) {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    // Tab buttons — compact, fixed-height row at the top. Selected tab is filled,
+                    // others are outlined. Tapping switches the pager page.
+                    WearTab.entries.forEachIndexed { index, tab ->
                         val selected = pagerState.currentPage == index
                         val tabIcon: @Composable () -> Unit = {
                             if (tab == WearTab.UPDATES && updateCount > 0) {
@@ -174,109 +170,70 @@ fun WearMainScreen(
                             }
                         }
                     }
-                }
 
-                // Page content — embedded in the same scrollable column so it benefits from
-                // ScalingLazyColumn's auto-scaling near the round edges. Each page fills the
-                // available width.
-                item(key = "page-content") {
+                    // Pager content — fills the remaining vertical space. weight(1f) gives it a
+                    // finite height derived from the parent Column, so AppsGamesScreen /
+                    // UpdatesScreen (which use their own Scaffold/LazyColumn internally) get a
+                    // bounded measure pass.
                     HorizontalPager(
                         state = pagerState,
                         userScrollEnabled = false,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
                     ) { page ->
-                        Box(modifier = Modifier.fillMaxSize()) {
-                            when (WearTab.entries[page]) {
-                                WearTab.APPS -> AppsGamesScreen(
-                                    pageType = 0,
-                                    onNavigateTo = onNavigateTo
-                                )
-                                WearTab.GAMES -> AppsGamesScreen(
-                                    pageType = 1,
-                                    onNavigateTo = onNavigateTo
-                                )
-                                WearTab.UPDATES -> UpdatesScreen(
-                                    viewModel = updatesViewModel,
-                                    onNavigateTo = onNavigateTo,
-                                    onRequestUpdate = { update ->
-                                        if (update.fileList.requiresObbDir() &&
-                                            !isGranted(context, PermissionType.STORAGE_MANAGER)
-                                        ) {
-                                            onNavigateTo(
-                                                Destination.PermissionRationale(
-                                                    setOf(PermissionType.STORAGE_MANAGER)
-                                                )
+                        when (WearTab.entries[page]) {
+                            WearTab.APPS -> AppsGamesScreen(
+                                pageType = 0,
+                                onNavigateTo = onNavigateTo
+                            )
+                            WearTab.GAMES -> AppsGamesScreen(
+                                pageType = 1,
+                                onNavigateTo = onNavigateTo
+                            )
+                            WearTab.UPDATES -> UpdatesScreen(
+                                viewModel = updatesViewModel,
+                                onNavigateTo = onNavigateTo,
+                                onRequestUpdate = { update ->
+                                    if (update.fileList.requiresObbDir() &&
+                                        !isGranted(context, PermissionType.STORAGE_MANAGER)
+                                    ) {
+                                        onNavigateTo(
+                                            Destination.PermissionRationale(
+                                                setOf(PermissionType.STORAGE_MANAGER)
                                             )
-                                        } else {
-                                            updatesViewModel.download(update)
-                                        }
-                                    },
-                                    onRequestUpdateAll = { selectedUpdates ->
-                                        val needsObb = selectedUpdates.any {
-                                            it.fileList.requiresObbDir()
-                                        }
-                                        if (needsObb &&
-                                            !isGranted(context, PermissionType.STORAGE_MANAGER)
-                                        ) {
-                                            onNavigateTo(
-                                                Destination.PermissionRationale(
-                                                    setOf(PermissionType.STORAGE_MANAGER)
-                                                )
+                                        )
+                                    } else {
+                                        updatesViewModel.download(update)
+                                    }
+                                },
+                                onRequestUpdateAll = { selectedUpdates ->
+                                    val needsObb = selectedUpdates.any {
+                                        it.fileList.requiresObbDir()
+                                    }
+                                    if (needsObb &&
+                                        !isGranted(context, PermissionType.STORAGE_MANAGER)
+                                    ) {
+                                        onNavigateTo(
+                                            Destination.PermissionRationale(
+                                                setOf(PermissionType.STORAGE_MANAGER)
                                             )
-                                        } else {
-                                            updatesViewModel.downloadAll(selectedUpdates)
-                                        }
-                                    },
-                                    onCancelUpdate = { packageName ->
-                                        updatesViewModel.cancelDownload(packageName)
-                                    },
-                                    onCancelAll = { updatesViewModel.cancelAll() }
-                                )
-                            }
+                                        )
+                                    } else {
+                                        updatesViewModel.downloadAll(selectedUpdates)
+                                    }
+                                },
+                                onCancelUpdate = { packageName ->
+                                    updatesViewModel.cancelDownload(packageName)
+                                },
+                                onCancelAll = { updatesViewModel.cancelAll() }
+                            )
                         }
                     }
-                }
 
-                // Quick actions — search / downloads / more. These used to be TopAppBar actions
-                // + FAB on phones; on a watch they fit better as outlined buttons below the
-                // content (low-contrast so they don't compete with the active tab).
-                item(key = "action-search") {
-                    OutlinedButton(
-                        modifier = Modifier.fillMaxWidth(),
-                        onClick = { onNavigateTo(Destination.Search) }
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_round_search),
-                                contentDescription = null
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Text(stringResource(R.string.action_search))
-                        }
-                    }
-                }
-                item(key = "action-downloads") {
-                    OutlinedButton(
-                        modifier = Modifier.fillMaxWidth(),
-                        onClick = { onNavigateTo(Destination.Downloads) }
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_download_manager),
-                                contentDescription = null
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Text(stringResource(R.string.title_download_manager))
-                        }
-                    }
-                }
-                item(key = "action-more") {
+                    // More button — single entry point to Search / Downloads / Settings, kept at
+                    // the bottom so it doesn't compete with the active tab. Avoids stacking three
+                    // extra chips vertically (which would eat pager space on a 1.4" watch).
                     OutlinedButton(
                         modifier = Modifier.fillMaxWidth(),
                         onClick = { onNavigateTo(Destination.Settings) }
