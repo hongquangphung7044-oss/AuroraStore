@@ -130,21 +130,27 @@ fun MainScreen(
         )
     }
 
-    // On Wear OS round watches, inset the whole Scaffold vertically so the TopAppBar moves DOWN
-    // and the NavigationBar moves UP — i.e. both bars shift toward the center, away from the
-    // round bezel that would otherwise clip their edges. Also shrink the bar heights so the
-    // pager content area in the middle gets more room.
-    val wearVerticalInset = if (wearCompact) 18.dp else 0.dp
-    val wearBarHeight = if (wearCompact) 36.dp else null
+    // On Wear OS round watches we want the TopAppBar to move UP (its bottom edge rises, freeing
+    // space below it) and the NavigationBar to move DOWN (its top edge lowers, freeing space
+    // above it). We do NOT add vertical padding to the Scaffold — that would push the top bar
+    // DOWN and the bottom bar UP (toward the center), which is the wrong direction and squeezes
+    // the middle even more.
+    //
+    // Instead we just shrink each bar's height:
+    //  - TopAppBar: 32dp (title + action icons still fit, bar is much shorter so its bottom edge
+    //    is higher → "moves up").
+    //  - NavigationBar: 40dp with icon-only items (no text label). Icons fit without clipping;
+    //    bar is much shorter so its top edge is lower → "moves down".
+    // The freed vertical space goes to the pager content area in the middle.
+    val wearTopBarHeight = if (wearCompact) 32.dp else null
+    val wearBottomBarHeight = if (wearCompact) 40.dp else null
 
     Scaffold(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(vertical = wearVerticalInset),
+        modifier = Modifier.fillMaxSize(),
         topBar = {
             TopAppBar(
-                modifier = if (wearBarHeight != null) {
-                    Modifier.height(wearBarHeight)
+                modifier = if (wearTopBarHeight != null) {
+                    Modifier.height(wearTopBarHeight)
                 } else {
                     Modifier
                 },
@@ -175,8 +181,8 @@ fun MainScreen(
         },
         bottomBar = {
             NavigationBar(
-                modifier = if (wearBarHeight != null) {
-                    Modifier.height(wearBarHeight)
+                modifier = if (wearBottomBarHeight != null) {
+                    Modifier.height(wearBottomBarHeight)
                 } else {
                     Modifier
                 }
@@ -202,7 +208,9 @@ fun MainScreen(
                                 )
                             }
                         },
-                        label = { Text(stringResource(tab.labelRes)) }
+                        // On Wear, drop the text label so the NavigationBar can be much shorter
+                        // without clipping the icons. On phones the label is kept (default behavior).
+                        label = if (wearCompact) null else { Text(stringResource(tab.labelRes)) }
                     )
                 }
             }
