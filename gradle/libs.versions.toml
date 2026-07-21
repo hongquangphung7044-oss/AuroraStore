@@ -42,7 +42,7 @@ room = "2.8.4"
 serialization = "1.11.0"
 shizuku = "13.1.5"
 truth = "1.4.5"
-wearCompose = "1.2.0"
+wearCompose = "1.6.2"
 work = "2.11.2"
 
 [libraries]
