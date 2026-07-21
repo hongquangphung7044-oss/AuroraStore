@@ -44,12 +44,11 @@ private val RoundScreenHorizontalPadding = 8.dp
  *
  * On rectangular screens this is a no-op so phone/tablet/TV layouts are untouched.
  */
-fun Modifier.roundScreenSafe(isRound: Boolean): Modifier =
-    if (isRound) {
-        this.padding(horizontal = RoundScreenHorizontalPadding)
-    } else {
-        this
-    }
+fun Modifier.roundScreenSafe(isRound: Boolean): Modifier = if (isRound) {
+    this.padding(horizontal = RoundScreenHorizontalPadding)
+} else {
+    this
+}
 
 /**
  * Wraps [content] with circular-display adaptation when the current configuration reports a round
