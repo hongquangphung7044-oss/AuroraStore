@@ -39,10 +39,24 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Android SDK packages (API 37 + build-tools)
+      - name: Accept SDK licenses & inspect available API levels
         run: |
           yes | sdkmanager --licenses > /dev/null 2>&1 || true
-          sdkmanager "platforms;android-37" "build-tools;37.0.0"
+          # Log which platforms the runner already has + what the repo offers, so we can
+          # diagnose "Failed to find package" without re-running the workflow.
+          echo "--- Pre-installed platforms ---"
+          ls -1 /usr/local/lib/android/sdk/platforms/ 2>/dev/null || true
+          echo "--- Pre-installed build-tools ---"
+          ls -1 /usr/local/lib/android/sdk/build-tools/ 2>/dev/null || true
+          echo "--- Repository offers (android-3x) ---"
+          sdkmanager --list 2>/dev/null | grep -E "android-3[0-9]" | head -20 || true
+
+      - name: Install required SDK packages (all channels, AGP will fall back to auto-download)
+        run: |
+          # API 37 is very recent — try all channels (stable + beta + canary). If the package
+          # still can't be found, don't fail the step: AGP 9.x auto-downloads missing SDK
+          # components during the build as long as licenses are accepted (which we did above).
+          sdkmanager --channel=0,1,2,3 "platforms;android-37" "build-tools;37.0.0" || true
 
       - name: Cache Gradle
         uses: actions/cache@v4
@@ -96,10 +110,12 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Android SDK packages (API 37 + build-tools)
+      - name: Accept SDK licenses
+        run: yes | sdkmanager --licenses > /dev/null 2>&1 || true
+
+      - name: Install required SDK packages (all channels, non-blocking)
         run: |
-          yes | sdkmanager --licenses > /dev/null 2>&1 || true
-          sdkmanager "platforms;android-37" "build-tools;37.0.0"
+          sdkmanager --channel=0,1,2,3 "platforms;android-37" "build-tools;37.0.0" || true
 
       - name: Cache Gradle
         uses: actions/cache@v4
