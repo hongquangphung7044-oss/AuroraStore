@@ -9,10 +9,15 @@ import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
@@ -27,11 +32,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material3.AppScaffold
-import androidx.wear.compose.material3.Badge
-import androidx.wear.compose.material3.BadgedBox
-import androidx.wear.compose.material3.Chip
-import androidx.wear.compose.material3.ChipDefaults
+import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.Icon
+import androidx.wear.compose.material3.OutlinedButton
 import androidx.wear.compose.material3.ScreenScaffold
 import androidx.wear.compose.material3.Text
 import com.aurora.extensions.requiresObbDir
@@ -112,38 +115,64 @@ fun WearMainScreen(
                 verticalArrangement = Arrangement.spacedBy(6.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Tab chips — Apps / Games / Updates. Selected tab is highlighted via
-                // secondary chip colors. Tapping a chip switches the pager page.
+                // Tab buttons — Apps / Games / Updates. The selected tab uses a filled Button
+                // (high-contrast) so the user sees which page they're on; unselected tabs use
+                // OutlinedButton (low-contrast). Tapping a button switches the pager page.
                 WearTab.entries.forEachIndexed { index, tab ->
                     item(key = "tab-$index") {
                         val selected = pagerState.currentPage == index
-                        Chip(
-                            modifier = Modifier.fillMaxWidth(),
-                            onClick = {
-                                coroutineScope.launch { pagerState.animateScrollToPage(index) }
-                            },
-                            colors = if (selected) {
-                                ChipDefaults.secondaryChipColors()
-                            } else {
-                                ChipDefaults.chipColors()
-                            },
-                            label = { Text(stringResource(tab.labelRes)) },
-                            icon = {
-                                if (tab == WearTab.UPDATES && updateCount > 0) {
-                                    BadgedBox(badge = { Badge { Text("$updateCount") } }) {
-                                        Icon(
-                                            painter = painterResource(tab.iconRes),
-                                            contentDescription = null
-                                        )
-                                    }
-                                } else {
+                        val tabIcon: @Composable () -> Unit = {
+                            if (tab == WearTab.UPDATES && updateCount > 0) {
+                                BadgedBox(badge = { Badge { Text("$updateCount") } }) {
                                     Icon(
                                         painter = painterResource(tab.iconRes),
                                         contentDescription = null
                                     )
                                 }
+                            } else {
+                                Icon(
+                                    painter = painterResource(tab.iconRes),
+                                    contentDescription = null
+                                )
                             }
-                        )
+                        }
+                        if (selected) {
+                            Button(
+                                modifier = Modifier.fillMaxWidth(),
+                                onClick = {
+                                    coroutineScope.launch {
+                                        pagerState.animateScrollToPage(index)
+                                    }
+                                }
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    tabIcon()
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(stringResource(tab.labelRes))
+                                }
+                            }
+                        } else {
+                            OutlinedButton(
+                                modifier = Modifier.fillMaxWidth(),
+                                onClick = {
+                                    coroutineScope.launch {
+                                        pagerState.animateScrollToPage(index)
+                                    }
+                                }
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    tabIcon()
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(stringResource(tab.labelRes))
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -209,45 +238,61 @@ fun WearMainScreen(
                 }
 
                 // Quick actions — search / downloads / more. These used to be TopAppBar actions
-                // + FAB on phones; on a watch they fit better as plain chips below the content.
+                // + FAB on phones; on a watch they fit better as outlined buttons below the
+                // content (low-contrast so they don't compete with the active tab).
                 item(key = "action-search") {
-                    Chip(
+                    OutlinedButton(
                         modifier = Modifier.fillMaxWidth(),
-                        onClick = { onNavigateTo(Destination.Search) },
-                        label = { Text(stringResource(R.string.action_search)) },
-                        icon = {
+                        onClick = { onNavigateTo(Destination.Search) }
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
                             Icon(
                                 painter = painterResource(R.drawable.ic_round_search),
                                 contentDescription = null
                             )
+                            Spacer(Modifier.width(8.dp))
+                            Text(stringResource(R.string.action_search))
                         }
-                    )
+                    }
                 }
                 item(key = "action-downloads") {
-                    Chip(
+                    OutlinedButton(
                         modifier = Modifier.fillMaxWidth(),
-                        onClick = { onNavigateTo(Destination.Downloads) },
-                        label = { Text(stringResource(R.string.title_download_manager)) },
-                        icon = {
+                        onClick = { onNavigateTo(Destination.Downloads) }
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
                             Icon(
                                 painter = painterResource(R.drawable.ic_download_manager),
                                 contentDescription = null
                             )
+                            Spacer(Modifier.width(8.dp))
+                            Text(stringResource(R.string.title_download_manager))
                         }
-                    )
+                    }
                 }
                 item(key = "action-more") {
-                    Chip(
+                    OutlinedButton(
                         modifier = Modifier.fillMaxWidth(),
-                        onClick = { onNavigateTo(Destination.Settings) },
-                        label = { Text(stringResource(R.string.title_more)) },
-                        icon = {
+                        onClick = { onNavigateTo(Destination.Settings) }
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
                             Icon(
                                 painter = painterResource(R.drawable.ic_settings_account),
                                 contentDescription = null
                             )
+                            Spacer(Modifier.width(8.dp))
+                            Text(stringResource(R.string.title_more))
                         }
-                    )
+                    }
                 }
             }
         }
