@@ -72,7 +72,7 @@ jobs:
         run: chmod +x ./gradlew
 
       - name: Assemble vanilla debug APK
-        run: ./gradlew assembleVanillaDebug --no-daemon --stacktrace
+        run: ./gradlew assembleVanillaDebug --no-daemon --no-configuration-cache --stacktrace
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
@@ -132,4 +132,4 @@ jobs:
         run: chmod +x ./gradlew
 
       - name: Run ktlintCheck
-        run: ./gradlew ktlintCheck --no-daemon --stacktrace
+        run: ./gradlew ktlintCheck --no-daemon --no-configuration-cache --stacktrace
