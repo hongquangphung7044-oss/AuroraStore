@@ -34,6 +34,7 @@ import com.aurora.store.ComposeActivity
 import com.aurora.store.R
 import com.aurora.store.compose.composition.LocalUI
 import com.aurora.store.compose.composition.UI
+import com.aurora.store.compose.composition.WearZoomOverlay
 import com.aurora.store.compose.ui.about.AboutScreen
 import com.aurora.store.compose.ui.accounts.AccountsScreen
 import com.aurora.store.compose.ui.accounts.GoogleLoginScreen
@@ -49,7 +50,6 @@ import com.aurora.store.compose.ui.downloads.DownloadsScreen
 import com.aurora.store.compose.ui.favourite.FavouriteScreen
 import com.aurora.store.compose.ui.installed.InstalledScreen
 import com.aurora.store.compose.ui.main.MainScreen
-import com.aurora.store.compose.ui.main.WearMainScreen
 import com.aurora.store.compose.ui.onboarding.OnboardingScreen
 import com.aurora.store.compose.ui.preferences.NotificationPreferenceScreen
 import com.aurora.store.compose.ui.preferences.SettingsScreen
@@ -223,10 +223,14 @@ fun NavDisplay(startDestination: NavKey) {
         entryProvider = entryProvider {
             entry<Screen.Main> { screen ->
                 if (isWear) {
-                    WearMainScreen(
-                        initialTab = screen.initialTab,
-                        onNavigateTo = ::navigate
-                    )
+                    // Keep the author's original MainScreen layout as-is; just wrap it with a
+                    // live-zoom overlay so the phone UI shrinks to fit the round watch glass.
+                    WearZoomOverlay {
+                        MainScreen(
+                            initialTab = screen.initialTab,
+                            onNavigateTo = ::navigate
+                        )
+                    }
                 } else {
                     MainScreen(
                         initialTab = screen.initialTab,
